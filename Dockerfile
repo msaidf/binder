@@ -1,4 +1,5 @@
-FROM rocker/geospatial:3.6.0
+FROM msaidf/r0-extension:latest
+MAINTAINER "Muhamad Said Fathurrohman" muh.said@gmail.com
 
 ENV NB_USER rstudio
 ENV NB_UID 1000
@@ -18,6 +19,8 @@ WORKDIR ${HOME}
 
 RUN apt-get update && \
     apt-get -y install python3-venv python3-dev && \
+    curl -sL https://deb.nodesource.com/setup_12.x | bash - && \
+    apt-get install -y nodejs && \
     apt-get purge && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -27,22 +30,26 @@ RUN apt-get update && \
 RUN mkdir -p ${VENV_DIR} && chown -R ${NB_USER} ${VENV_DIR}
 
 USER ${NB_USER}
-RUN python3 -m venv ${VENV_DIR} && \
-    # Explicitly install a new enough version of pip
-    pip3 install pip==9.0.1 && \
-    pip3 install --no-cache-dir \
-         nbrsessionproxy==0.6.1 && \
-    jupyter serverextension enable --sys-prefix --py nbrsessionproxy && \
-    jupyter nbextension install    --sys-prefix --py nbrsessionproxy && \
-    jupyter nbextension enable     --sys-prefix --py nbrsessionproxy
 
+RUN python3 -m venv ${VENV_DIR} && \
+    pip3 install pip==18.0
+
+RUN pip3 install --no-cache-dir jupyterlab jupyter-rsession-proxy \
+    jupyter_nbextensions_configurator jupyter_contrib_nbextensions \
+    neovim nbdime RISE && \
+    nbdime config-git --enable --global && \
+    jupyter contrib nbextension install && \
+    jupyter nbextensions_configurator enable
+
+RUN pip3 install --no-cache-dir panda numpy matplotlib plotly scipy scikit-learn nltk spacy bs4 
 
 RUN R --quiet -e "devtools::install_github('IRkernel/IRkernel')" && \
     R --quiet -e "IRkernel::installspec(prefix='${VENV_DIR}')"
 
+RUN curl -fLo ~/.local/share/nvim/site/autoload/plug.vim \
+    --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
 
-CMD jupyter notebook --ip 0.0.0.0
 
+CMD jupyter lab --ip 0.0.0.0
 
 ## If extending this image, remember to switch back to USER root to apt-get
-
